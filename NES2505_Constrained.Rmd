@@ -9,6 +9,7 @@ library(learnr)
 library(mosaic)
 library(vegan)
 library(ggrepel)
+library(tidyverse)
 data(dune)
 data(dune.env)
 data(varespec)
@@ -438,7 +439,7 @@ possible combinations of your explanatory variables. You can include all the env
 # Create full ordination with all the explanatory variables, using the ~ .
 # syntax to save you having to type the names of all 14 variables separately
 varespec_bigcca <- cca(varespec ~ . , data=varechem)
-varespec_mincca <- ordi_step(varespec_bigcca)
+varespec_mincca <- ordistep(varespec_bigcca)
 
 # Check results
 anova(varespec_mincca, by="margin")
