@@ -1,0 +1,269 @@
+---
+title: "Constrained ordination: including explanatory variables"
+subtitle: "NES2505"
+output:
+  html_document: default
+  word_document:
+     reference_docx: template.docx
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+library(vegan)
+data("varespec")
+data("varechem")
+varespec_cca <- cca(varespec ~ K + P + Al + pH + Baresoil, data=varechem)
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+Unconstrained ordination methods such as PCA, CA and NMDS allow you to summarise
+the relationships between your samples (sites, isolates, quadrats etc.) and your
+attributes (species, gene sequences etc.). They provide a useful method to 
+simplify your data so that it can be viewed in a 2-dimensional ordination plot.
+The scores from these plots, especially the first axis, can sometimes be related
+to potential explanatory variables to aid interpretation, as you showed with
+soil moisture and the dune vegetation analysis.
+
+If you have explanatory variables, you might be tempted to extract an ordination
+axis, and after visualising any patterns with a potential explanatory variable,
+undertake a linear model, with your chosen **ordination axis** as your response. This is sometimes also called **indirect gradient analysis**. However, one assumption of linear models (and GLMs), is that all your response data points are independent of each other:
+
+* The composition of macroalgae in your first quadrat should not affect those in your second. 
+* The gene sequence from your third isolate should not change those in your fifth
+* The bacterial OTU samples from Chile should be independent of the OTUs obtained from France
+* The types of benthic marcofaunal found in your sediment sample from Northumberland should
+not influence those found in your sediment sample from Cornwall
+
+This seems fairly obvious, and in practical terms, when you collect the data from
+field surveys or laboratory experiments, the various samples are independent. The
+problem arises from what happens when you undertake an unconstrained ordination.
+
+The challenge is that the sample scores within an ordination axis are **not** independent of each other. Indeed if a single sample is removed from your dataset
+there is the risk that all the others will shift, although their **relative** positions to each other will remain constant. See [this example of the problems in a PCA](https://naturalandenvironmentalscience.shinyapps.io/Constrained/#section-problems-with-indirect-gradient-analysis) when one row is removed. One assumption of conventional linear models is that each sample (row) is independent, yet it is obvious that ordination scores breach this assumption.
+
+Fortunately, an alternative method to resolve this problem,
+known as **constrained ordination** was developed in 1989, and has since become
+a standard technique for biologists.
+
+## Constrained ordination
+In a constrained ordination the explanatory variables (categorical and/or
+continuous) are incorporated into the ordination itself. The sample scores are
+constrained to be linear combinations of the various explanatory variables,
+whilst simultaneously accounting for the composition of the attributes. So the
+overall format is:
+
+$$\textit{Table of response variables} = \textit{Explanatory variables} + \epsilon$$
+
+Note that the technique does not work effectively if you only have one or two
+explanatory variables, as it may constrain all your samples or attributes too
+much along one axis. The display of constrained analysis is in the form of 
+modified ordination plots, which can be very informative once you have learnt
+how to interpret them. You can also undertake formal statistical tests using
+analyses analogous to ANOVA. The technique will also cope with complex experimental
+designs, such as blocked designs, or time-series. You can also create interaction
+terms if needed. Constrained analysis exists in two main forms, linear and unimodal. The linear form is Redundancy Analysis (RDA) and unimodal is Canonical Correspondence Analysis (CCA). These are run using the `rda()` and `cca()` functions respectively.
+
+The overall aim of this practical is to introduce you to the analysis, interpretation and display of multi-variable data with explanatory variables through constrained ordination. Specific objectives are to:
+
+1. Use unimodal methods to analyse, visualise and interpret the ordination plots
+2. Demonstrate "permutation ANOVA" of the whole analysis, different explanatory variables, and individual ordination axes
+3. Use stepwise selection to identify the minimum number of explanatory variables.
+
+The approach for the analysis and interpretation of linear methods is very similar.
+
+# 1. Unimodal analysis and visualisation
+## 1.1 Study dataset
+The study dataset is one we have looked at already, that comes with the `vegan` package, namely the `varespec` dataset reindeer-grazed lichen pasture data published in Vare et al (1995). This has 24 rows (samples) and 44 columns (species) and form our "response" dataset. There is also a `varechem` dataset, with 14 columns containing soil characteristics. These are the "explanatory" dataset, and of course 14 explanatory variables is a very large number and difficult to interpret. This is where constrained ordination can help us simplify the data to aid understanding. The basic model we therefore have is:
+
+
+$$\textit{Tundra vegetation} = \textit{Soil chemistry} + \epsilon$$
+
+This is a vegetation ecology example. However, but there published papers using this method on marine communities, gene sequences from microbial data, and it can be applied to any discipline where you have large numbers of potential response and explanatory variables.
+
+Begin by loading the two datasets, and explore their contents, for example
+
+```{r, eval=FALSE}
+library(vegan)
+
+# Access the example datasets
+data("varespec")
+data("varechem")
+
+# Explore the data
+summary(varespec)
+summary(varechem)
+View(varespec)
+View(varechem)
+```
+
+
+## 1.2 Unimodal constrained ordination
+Canonical correspondence analysis (CCA) provides a robust method of analysis. We will use the `cca()` function, from the `vegan` package. If you want to see the full help for the function type `?cca` in the Console (warning: it is long and complicated!).
+
+When you have a lot of variables like this, it is good practice to just check the variables names. Sometimes there is a gap between when you create your spreadsheet containing data and doing your analysis. For simplicity, we will begin by just looking at potassium,
+phosphorus, Aluminium, soil pH (`pH`), and the amount of bare ground (`Baresoil`) as explanatories. Use the `names()` function to find the correct variable names for these elements (remember your periodic table) and edit the code to run the analysis.
+
+```{r varespec_cca, eval=FALSE}
+varespec_cca <- ordi_cca(varespec ~ Potassium + Phopsphous + Aluminium + pH + Baresoil, data=varechem)
+summary(varespec_cca)
+```
+
+Before we carry on with the interpretation, there is something very important that we need to consider when coding these analyses. We are using two dataframes for the analysis. The first is set as our response variable which is `varespec` which actually contains our **multiple responses**. These are the species coverage data. The second dataframe is the `varechem` which contains our explanatory variables.
+
+When you run the `summary()` function on its own you will see a very large amount
+of output; this is fine in RStudio. Scroll up in the Console and you will eventually find the most important part, namely the amount of variation explained by the first two axes, and you should see (when converted to a percentage) that CCA1 explains (17.7%) and CCA2 (9.3%) so the first two axes explain roughly 27% of the variation.
+
+What can be more useful are the plots. The default is a **triplot** which shows
+the samples (sites), attributes (species), and explanatory variables (soil chemistry)
+all in one plot. Note:
+
+* If the explanatory variables are **continuous** (as here) they are shown in the
+plot as arrows.
+* If the explanatory variables are **categorical** they are shown as points, with
+a different point for each of your category levels
+* You can of course have a mixture of continuous and categorical variables
+
+```{r varespec_triplot}
+plot(varespec_cca)
+```
+
+You can make inferences about the explanatory variables based on the following rules:
+
+* Important explanatory variables have **longer arrows**, less important variables
+have **short arrows**
+* Two explanatory variables that are **positively correlated** in their effects
+will point in the **same** direction
+* Two explanatory variables that are **negatively correlated** to each other will
+point in **opposite** directions
+* Two explanatory variables that are **uncorrelated** with each other will have 
+arrows at roughly 90 degrees to each other.
+
+You can see that Aluminium (`Al`), Phosphorus (`P`) and bare soil (`Baresoil`) are the most important variables, as these have the longest arrows. Al and pH are positively correlated with other (arrows point in same direction), and K and P are positively correlated (roughly) as arrows point in the same direction. pH and Baresoil are negatively correlated (arrows point in opposite directions). pH and P are uncorrelated with each other (arrows roughly 90-degrees).
+
+## 1.3 Simplifying the plot to view samples or species
+There is still a lot of information in the plots so you can simplify them if you wish by creating plots that only show the site and species scores along with the arrows.
+
+```{r, eval=FALSE}
+plot(varespec_cca, display="sites")
+plot(varespec_cca, display = "species")
+```
+
+These plots, especially the species one, are quite cluttered as the **ubiquituous species** that occur in lots of samples overlap in the middle. You can if you wish only label selected points using `ordi_identify()`:
+
+```{r, eval=FALSE}
+# Sites; save in R object and label points with mouse
+varespec_cca_site_plt <- ordi_plot(varespec_cca, geom="point", layers=c("sites", "biplot"))
+varespec_cca_site_plt
+ordi_identify(varespec_cca_site_plt)
+
+# Species; save in R object and label points with mouse
+varespec_cca_spp_plt  <- ordi_plot(varespec_cca, geom="point", layers=c("species", "biplot"))
+varespec_cca_spp_plt
+ordi_identify(varespec_cca_spp_plt)
+```
+
+From these plots we can start to interpret the relationships between our explanatory variables and individual samples or species:
+
+* There is a relatively large amount of bare soil at samples 22, 16, 14, and relatively little bare soil at sites 2, 3, 4, 9, 10, 12
+* Samples 24, 25, 27, 28 are relatively high in P and K, whilst samples 5, 6, 7 13 and 18 have low P and K
+* Al and pH are probably highest in samples 3 and 4
+* Species associated with more bare soil include Betupube, Barbhatc, Ptilcili
+* Species associated with low K and P include Callvulg, Icmaeric and Vacculig
+
+## 1.4 Bare soil is not soil chemistry
+The longest arrow (and hence most important explanatory variable) is bare soil. However, this is not of course soil chemistry, and so you might be interested in looking at what is going on after taking into account the effects of bare soil. This is easy to do with a **partial constrained analysis**. Simply add the term `Condition(Baresoil)` to your explanatory variables to remove its effect.
+
+```{r, eval=FALSE}
+# Partial CCA, storing the results in a new R object
+varespec_cca2 <- ordi_cca(varespec ~ K + P + Al + pH + Condition(Baresoil), data=varechem)
+
+# If you find these plots too cluttered, use ordi_identify
+ordi_plot(varespec_cca2, geom="text", layers=c("sites", "biplot"))
+ordi_plot(varespec_cca2, geom="text", layers=c("species", "biplot"))
+```
+
+The relationships between the remaining soil chemistry variables are now clearer. Partial ordination using a "conditioning" variable is a useful way of seeing what is going on in your data **after** having removed an important, but less scientifically interesting, variable to the question you are trying to address.
+
+Another advantage of constrained ordination, irrespective of whether you have "partialled-out" a variable using `Condition` or have the original CCA, is that it is easier to interpret the biological meaning of the x- and y-axes for CCA1 and CCA2. So, for example, in the plot for `varespec_cca2` you can see that the aluminium content of the soil increases from left to right in the plot, as the arrow representing aluminium is almost parallel with CCA1, and points to the right. Potassium (`K`) tends to increase with CCA2, although as the arrow is at about 45 degrees it is not quite as clear-cut.
+
+## 1.5 Using categorical explanatory variables
+Constrained ordination methods work just as effectively with explanatory variables that are categorical as well as those that are continuous, and you express the model in response and explanatory variables in exactly the same way. It can even handle 'ordinal' explanatory variables (ranked "first", "second", "third" etc.). Have a look at the example using the `dune` and `dune.env` datasets (both come with `vegan`) that you can [access at the BIO8075 website](https://naturalandenvironmentalscience.shinyapps.io/Constrained/#section-constrained-ordination-with-categorical-explanatory-variables). When you have time, try out these examples in RStudio. The main difference with categorical explanatory variables is that they are displayed as **points** (centroids) rather than arrows, but their interpretation is the same.
+
+# 2. Permutation ANOVA tests
+## 2.1 What is permutation ANOVA?
+Significance tests of constrained ordination is done using an unusual method, as it is not possible to calculate sums of squares (SS), mean-squares (MS or variance) and F-ratios through the conventional approach that we have already looked at. In a conventional ANOVA, you calculate an F-ratio, and the p-value is the probability of your null hypothesis. Remember that the null hypothesis is that there is **no relationship** between the response and explanatory variables. Hence, if the p-value is very low (less than 0.05) we **reject** the null hypothesis.
+
+In a constrained ordination we don't actually know the F-ratio, p-value etc. However, we can come up with a null hypothesis, namely that our explanatory variables have no effect on our **multiple** response variables. So, in the example that we have been looking at, our null hypothesis is that soil chemistry has no effect on vegetation species composition.
+
+If soil chemistry has no effect on the vegetation, then if this null hypothesis is true then it shouldn't really matter which observation (row) of our response (vegetation) is assigned to which observation (row) of our explanatory (soil chemistry). If we were to shuffle the dataset ("permutation") then the relationships in our ordination plot would be roughly the same as in the unshuffled dataset. So basically we run the ordination analysis hundreds of times, and see how often the shuffled dataset gives the same results as the original unshuffled data. This allows us to calculate a "permutation p-value":
+
+$$\textit{p-value}=\frac{n_x + 1}{N + 1}$$
+
+where
+
+* $n_x$ is the number of times the shuffled (permutated) data gave the same results as the original unshuffled data
+* $N$ is the total number of permutations
+
+So, if you did 999 random shuffles of your data, and only 8 of them gave the same result as your unshuffled data, you would have:
+
+$$\textit{p-value}=\frac{8+1}{999+1}=\frac{9}{1000}=0.009$$
+
+which is a low probability and therefore you would reject the null hypothesis of no effect of your explanatory variable on your response. Quite obviously, the order of your rows in your response relative to your explanatory matters, because the latter is having a big effect.
+
+One oddity of the permutation approach is that you will obtain slightly different p-values every time you run the analysis. This is nothing to worry about, as long as you have sufficient permutations. R will default to the best number of permutations, or else it will select 999, so that you have a p-value to 3 significant figures.
+
+## 2.2 Overall effect of explanatory variables
+The simplest test is a permutation ANOVA of the overall effects of your explanatory variables on your response. Your results will not be exactly the same as mine due to the randomisation process. The results are still presented in the form of an ANOVA table, but some authors refer to the F-ratio as a "pseudo F-ratio" as it has been calculated through randomisation rather than the conventional least-squares approach.
+
+```{r}
+anova(varespec_cca)
+```
+
+On the line headed `Model` you can see an F-ratio and highly-significant P-value. You would report the F-ratio and p-value in the conventional way in your report, and this shows that overall soil chemistry has an effect on the species composition of the vegetation.
+
+## 2.3 Effect of individual explanatory variables
+You can check the importance of the explanatory variables using a "terms" option or a "margin". The terms option is most appropriate for a formally balanced designed experiment, where your explanatory variables include main effects and interaction terms, for example a laboratory experiment with a balanced number of replicates in each treatment level. This is analagous to the Type I Sums of Squares in linear models, and is good for balanced, designed experiments.
+
+However if you have an unbalanced design, the order in which you enter the explanatory variables into the model affects the results, and it is better to use the margin option. This takes into account potential collinearity (i.e. correlations) amongst the explanatory variables, and ensures that the order in which you enter the explanatory variables no longer matters. This is analagous to the Type III Sums of Squares in linear models. It is generally more appropriate for surveys, such as this one, which are unbalanced.
+
+Run the following code several times. Notice how the exact F- and p-values you obtain differ slightly; by default it does 999 randomisations of your data, although you can force it to do more.
+
+```{r}
+anova(varespec_cca, by="margin")
+```
+
+Although the exact p-values will differ slightly each time you run the code, the overall conclusions are the same, namely that phosphorus (P) and aluminium (Al) are the two important variables. You might be puzzled as to why bare soil is non-significant, even though it has fairly long arrow. This is because it is strongly correlated (in this case negatively correlated) with Aluminimum and pH. The `margin` test automatically corrects for correlations amongst explanatory variables.
+
+## 2.4 How important is each axis?
+It is very useful to have a good understanding of the importance of each axis from your constrained ordination. Whilst the summary(varespec_cca) used earlier returned the percentage variation explained by each axis, sometimes only CCA1 is worth studying in detail, whilst (rarely) you may have data where CCA1, CCA2 and even CCA3 need to be checked. You can run a permutation ANOVA on the individual axes using the by="axis" option; again the exact p-values will differ slightly on each run.
+
+```{r}
+anova(varespec_cca, by="axis")
+```
+
+# 3. Stepwise selection of the most important explanatory variables
+## 3.1 When to use stepwise selection
+Stepwise selection involves repeated re-running an analysis to identify the 'best' or most useful minimal subset of your explanatory variables. It can be applied to both linear models as well as constrained ordination. You should be aware that the technique should not be used uncritically due to problems inherent in multiple testing of the same dataset. See [this paper](https://besjournals-onlinelibrary-wiley-com.libproxy.ncl.ac.uk/doi/abs/10.1111/j.1365-2656.2006.01141.x@10.1111/(ISSN)2041-210X.BritishEcologicalSocMethodsPapers) for a review of some of the problems.
+
+Nevertheless, it can be of value in the situation we face here, where we have a multivariate response (i.e. lots of species) and a large number of soil chemistry explanatory variables (14 in total). When you have a large number of explanatory variables, it can be useful to simplify down to a minimal number of key ones, to try and reduce the "collinearity" (correlations, positive or negative) between explanatory variables. This can be done through multiple `anova()` tests, dropping the least significant variable, and repeating. Fortunately this can be done automatically using the `ordi_step()` function. You create your initial constrained ordination with all your explanatory variables, pass it to `ordi_step()` and let it simplify your data. It does produce rather a lot of output as it grinds through your data, but the end-product is useful.
+
+Let’s try it with your `varespec` data, as the `varechem` dataset is very large with 14 potential explanatory variables. It will **generally err on the side of caution** given the problems with stepwise selection, and so will retain some non-significant explanatory variables. Note The following code will generate a large amount of output as it steps through all possible combinations of your explanatory variables.
+
+In the code below, the  `varespec ~ .` syntax indicates that you begin by having a constrained ordination with **all** the explanatory variables. This saves you having to type in the names of all 14 variables separately. We store the initial results in `varespec_bigcca` then simplify it using `ordi_step()`, storing the results in `varespec_mincca`
+
+```{r, results=FALSE}
+# Create full ordination with all the explanatory variables, using the ~ .
+# syntax to save you having to type the names of all 14 variables separately
+varespec_bigcca <- ordi_cca(varespec ~ . , data=varechem)
+varespec_mincca <- ordi_step(varespec_bigcca)
+```
+
+Finally, we can check the results of our minimal CCA analysis:
+
+```{r}
+anova(varespec_mincca, by="margin")
+```
+
+# Summary
+Constrained ordination, available via either `ordi_rda()` or `ordi_cca()` provides a powerful tool to understand the relationships between your multiple response variables and explanatories. Whilst the process of statistical analysis is slightly different, interpretation of results on graphs and from tables is relatively straightforward.
