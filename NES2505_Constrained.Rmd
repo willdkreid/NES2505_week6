@@ -8,7 +8,7 @@ runtime: shiny_prerendered
 library(learnr)
 library(mosaic)
 library(vegan)
-library(bio2020)
+library(ggrepel)
 data(dune)
 data(dune.env)
 data(varespec)
@@ -464,6 +464,12 @@ Constrained ordination is a really good way to analyse your data when you have m
 
 The explanatory variables can tested to see whether they are significant through the use of a permutation ANOVA.
 
+There is a lot more that you can do with the `vegan` package when it comes to analysing community data. On the R website where the package is hosted, there is more information about the capabilities of `vegan` in the [vignettes section](https://cran.r-project.org/web/packages/vegan/index.html). It is worthwhile having a look at these if you are interested to learn more.
+
+If you want to take a deep dive into ordination methods then the following references will be useful with the Quinn and Keough being a lot more technical:
+
+* [Ramette A(2007) Multivariate analyses in microbial ecology. FEMS Microbiology Ecology;62, 142–160.](https://academic.oup.com/femsec/article/62/2/142/434668)
+* Chapter 17 Principal components and correspondence analysis. In Experimental Design and Data Analysis for Biologists by Quinn and Keough. (in library)
 
 
 
